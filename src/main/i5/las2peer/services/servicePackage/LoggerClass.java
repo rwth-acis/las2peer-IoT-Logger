@@ -27,10 +27,6 @@ import io.swagger.annotations.Contact;
 import io.swagger.annotations.Info;
 import io.swagger.annotations.License;
 import io.swagger.annotations.SwaggerDefinition;
-import rocks.xmpp.addr.Jid;
-import rocks.xmpp.core.session.TcpConnectionConfiguration;
-import rocks.xmpp.core.session.XmppClient;
-import rocks.xmpp.core.stanza.model.Message;
 
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -40,6 +36,8 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import org.jivesoftware.smack.AbstractXMPPConnection;
 import org.jivesoftware.smack.ConnectionConfiguration;
+import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
+import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 
@@ -120,31 +118,29 @@ public class LoggerClass extends Service {
 	})
 	public HttpResponse connect() {
 		
-		TcpConnectionConfiguration tcpConfiguration = TcpConnectionConfiguration.builder()
-			    .hostname("desktop-n4f68bb")
-			    .port(5222)
-			    .secure(false)
-			    .build();
-		
-		XmppClient xmppClient = XmppClient.create("desktop-n4f68bb", tcpConfiguration);
-		
-//		XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
-//				  .setUsernameAndPassword("melvin", "test")
-//				  .setServiceName("desktop-n4f68bb")
-//				  .setPort(5222)
-//				  .setSecurityMode(ConnectionConfiguration.SecurityMode.disabled)
-//				  .build();
-//				  
+//		TcpConnectionConfiguration tcpConfiguration = TcpConnectionConfiguration.builder()
+//			    .hostname("desktop-n4f68bb")
+//			    .port(5222)
+//			    .secure(false)
+//			    .build();
 //		
-//
-//		
-//		AbstractXMPPConnection conn2 = new XMPPTCPConnection(config);
+//		XmppClient xmppClient = XmppClient.create("desktop-n4f68bb", tcpConfiguration);
+		
+		
+		XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
+		configBuilder.setUsernameAndPassword("melvin", "test");
+		configBuilder.setResource("logger");
+		configBuilder.setServiceName("desktop-n4f68bb");
+		configBuilder.setSecurityMode(SecurityMode.disabled);
+		
+		AbstractXMPPConnection connection = new XMPPTCPConnection(configBuilder.build());
 		
 		try{
 			
-			xmppClient.connect();
-			xmppClient.login("melvin", "test", "resource");
-			xmppClient.send(new Message(Jid.of("admin@edesktop-n4f68bb"), Message.Type.CHAT));
+			// Connect to the server
+			connection.connect();
+			// Log into the server
+			connection.login();
 			
 		} catch(Exception e){
 			
