@@ -139,7 +139,7 @@ public class ServiceTest {
 
 		try {
 			c.setLogin(Long.toString(testAgent.getId()), testPass);
-			ClientResponse result = c.sendRequest("GET", mainPath + "connect", "");
+			ClientResponse result = c.sendRequest("GET", mainPath + "receive", "");
 			
 			assertEquals(200, result.getHttpCode());
 			

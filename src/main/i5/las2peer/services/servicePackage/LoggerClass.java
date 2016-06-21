@@ -28,6 +28,8 @@ import io.swagger.annotations.Info;
 import io.swagger.annotations.License;
 import io.swagger.annotations.SwaggerDefinition;
 
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -35,17 +37,15 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import org.jivesoftware.smack.AbstractXMPPConnection;
-import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
-import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 
 /**
- * LAS2peer Service
+ * LAS2peer IoT Logger Service
  * 
- * This is a template for a very basic LAS2peer service
- * that uses the LAS2peer Web-Connector for RESTful access to it.
+ * This is a las2peer service that can log data from XMPP and MQTT networks. The data can
+ * then be sent to another arbitraty platform for example SWeVA via a Websocket Agent.
  * 
  * Note:
  * If you plan on using Swagger you should adapt the information below
@@ -76,7 +76,7 @@ import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 		))
 
 
-public class LoggerClass extends Service {
+public class LoggerClass extends Service implements MqttCallback {
 	
 	// put in info for connection to MQTT Broker
 	public String topic = "rwth";
@@ -102,6 +102,63 @@ public class LoggerClass extends Service {
 	// //////////////////////////////////////////////////////////////////////////////////////
 	
 	/**
+	 * Subscribe to a MQTT broker on all topics and receive all data.
+	 * 
+	 * @return HttpResponse with result of the publish
+	 */
+	
+	@GET
+	@Path("/receive")
+	@Produces(MediaType.TEXT_PLAIN)
+	@ApiOperation(value = "MQTT Log",
+			notes = "logs a MQTT Broker")
+	@ApiResponses(value = {
+			@ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Logging Successful"),
+			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
+	})
+	public HttpResponse receive() {
+		
+		// try to connect to MQTT Broker
+		try {
+            MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
+            MqttConnectOptions connOpts = new MqttConnectOptions();
+            connOpts.setCleanSession(true);
+            connOpts.setKeepAliveInterval(30);
+    		connOpts.setUserName(clientId);
+    		connOpts.setPassword(password.toCharArray());
+    		
+            System.out.println("Connecting to broker: "+broker);
+            sampleClient.connect(connOpts);
+            System.out.println("Connected");
+            System.out.println("Publishing message: "+content);
+            
+            // Use Wildcard # to subscribe to all topics
+            sampleClient.subscribe("#");
+            System.out.println("Subscribed to all topics");
+            
+            sampleClient.setCallback(this);
+            
+            while(sampleClient.isConnected()){
+            	//Wait for messages to arrive
+            }
+
+            
+        } catch(MqttException me) {
+            System.out.println("reason "+me.getReasonCode());
+            System.out.println("msg "+me.getMessage());
+            System.out.println("loc "+me.getLocalizedMessage());
+            System.out.println("cause "+me.getCause());
+            System.out.println("excep "+me);
+            me.printStackTrace();
+
+    		return new HttpResponse("reason "+me.getReasonCode(), HttpURLConnection.HTTP_INTERNAL_ERROR);
+        }
+		
+		String returnString = "result";
+		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
+	}
+	
+	/**
 	 * Publish a message to a MQTT Broker.
 	 * 
 	 * @return HttpResponse with result of the publish
@@ -117,15 +174,6 @@ public class LoggerClass extends Service {
 			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
 	})
 	public HttpResponse connect() {
-		
-//		TcpConnectionConfiguration tcpConfiguration = TcpConnectionConfiguration.builder()
-//			    .hostname("desktop-n4f68bb")
-//			    .port(5222)
-//			    .secure(false)
-//			    .build();
-//		
-//		XmppClient xmppClient = XmppClient.create("desktop-n4f68bb", tcpConfiguration);
-		
 		
 		XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
 		configBuilder.setUsernameAndPassword("melvin", "test");
@@ -298,4 +346,26 @@ public class LoggerClass extends Service {
 		return result;
 	}
 
+	// //////////////////////////////////////////////////////////////////////////////////////
+		// Methods required by the MQTT Callback Interface
+		// //////////////////////////////////////////////////////////////////////////////////////
+	
+	@Override
+	public void connectionLost(Throwable cause) {
+	    // TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void messageArrived(String topic, MqttMessage message)
+	        throws Exception {
+	 System.out.println(message);  
+	    // TODO Message handling 
+	}
+
+	@Override
+	public void deliveryComplete(IMqttDeliveryToken token) {
+	    // TODO Auto-generated method stub
+	}
+	
 }
