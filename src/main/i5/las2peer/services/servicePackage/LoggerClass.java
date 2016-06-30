@@ -78,15 +78,8 @@ import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 
 public class LoggerClass extends Service implements MqttCallback {
 	
-	// put in info for connection to MQTT Broker
-	public String topic = "rwth";
-	public String content = "this client works";
-	public int qos = 2;
-	public String broker = "tcp://localhost:1883";
-	public String clientId = "IoTLogger";
-	public String password = "test";
-	MemoryPersistence persistence = new MemoryPersistence();
-
+	// agent for logging
+	private NRTAgent nrtlogger;
 	// instantiate the logger class
 	private final L2pLogger logger = L2pLogger.getInstance(LoggerClass.class.getName());
 
@@ -108,7 +101,7 @@ public class LoggerClass extends Service implements MqttCallback {
 	 */
 	
 	@GET
-	@Path("/receive")
+	@Path("/start")
 	@Produces(MediaType.TEXT_PLAIN)
 	@ApiOperation(value = "MQTT Log",
 			notes = "logs a MQTT Broker")
@@ -116,56 +109,23 @@ public class LoggerClass extends Service implements MqttCallback {
 			@ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Logging Successful"),
 			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
 	})
-	public HttpResponse receive() {
+	public HttpResponse start() {
 		
-		// try to connect to MQTT Broker
-		try {
-            MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
-            MqttConnectOptions connOpts = new MqttConnectOptions();
-            connOpts.setCleanSession(true);
-            connOpts.setKeepAliveInterval(30);
-    		connOpts.setUserName(clientId);
-    		connOpts.setPassword(password.toCharArray());
-    		
-            System.out.println("Connecting to broker: "+broker);
-            sampleClient.connect(connOpts);
-            System.out.println("Connected");
-            System.out.println("Publishing message: "+content);
-            
-            // Use Wildcard # to subscribe to all topics
-            sampleClient.subscribe("#");
-            System.out.println("Subscribed to all topics");
-            
-            sampleClient.setCallback(this);
-            
-            while(sampleClient.isConnected()){
-            	//Wait for messages to arrive
-            }
-
-            
-        } catch(MqttException me) {
-            System.out.println("reason "+me.getReasonCode());
-            System.out.println("msg "+me.getMessage());
-            System.out.println("loc "+me.getLocalizedMessage());
-            System.out.println("cause "+me.getCause());
-            System.out.println("excep "+me);
-            me.printStackTrace();
-
-    		return new HttpResponse("reason "+me.getReasonCode(), HttpURLConnection.HTTP_INTERNAL_ERROR);
-        }
+		try{
 		
-		String returnString = "result";
+			nrtlogger = NRTAgent.createMonitoringAgent("pass");
+			nrtlogger.unlockPrivateKey("pass");
+			nrtlogger.receiveMQTT();
+		
+		} catch(Exception e){
+			return new HttpResponse(e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
+		}
+		String returnString = "Succesfully started logging of MQTT";
 		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
 	}
-	
-	/**
-	 * Publish a message to a MQTT Broker.
-	 * 
-	 * @return HttpResponse with result of the publish
-	 */
-	
+
 	@GET
-	@Path("/connect")
+	@Path("/starttXMPP")
 	@Produces(MediaType.TEXT_PLAIN)
 	@ApiOperation(value = "XMPP Connect",
 			notes = "connect to an XMPP network")
@@ -175,29 +135,21 @@ public class LoggerClass extends Service implements MqttCallback {
 	})
 	public HttpResponse connect() {
 		
-		XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
-		configBuilder.setUsernameAndPassword("melvin", "test");
-		configBuilder.setResource("logger");
-		configBuilder.setServiceName("desktop-n4f68bb");
-		configBuilder.setSecurityMode(SecurityMode.disabled);
-		
-		AbstractXMPPConnection connection = new XMPPTCPConnection(configBuilder.build());
-		
 		try{
-			
-			// Connect to the server
-			connection.connect();
-			// Log into the server
-			connection.login();
-			
-		} catch(Exception e){
-			
-			String returnString = "connection failed";
-			return new HttpResponse(returnString, HttpURLConnection.HTTP_INTERNAL_ERROR);
+		
+			nrtlogger = NRTAgent.createMonitoringAgent("pass");
+			nrtlogger.unlockPrivateKey("pass");
+			nrtlogger.receiveXMPP();
+		
+		}
+		
+		catch(Exception e){
+			return new HttpResponse(e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
 		}
 		
 		String returnString = "result";
 		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
+		
 	}
 	
 	
@@ -220,33 +172,12 @@ public class LoggerClass extends Service implements MqttCallback {
 		
 		// try to connect to MQTT Broker
 		try {
-            MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
-            MqttConnectOptions connOpts = new MqttConnectOptions();
-            connOpts.setCleanSession(true);
-            connOpts.setKeepAliveInterval(30);
-    		connOpts.setUserName(clientId);
-    		connOpts.setPassword(password.toCharArray());
-    		
-            System.out.println("Connecting to broker: "+broker);
-            sampleClient.connect(connOpts);
-            System.out.println("Connected");
-            System.out.println("Publishing message: "+content);
-            MqttMessage message = new MqttMessage(content.getBytes());
-            message.setQos(qos);
-            sampleClient.publish(topic, message);
-            System.out.println("Message published");
-            sampleClient.disconnect();
-            System.out.println("Disconnected");
-            System.exit(0);
-        } catch(MqttException me) {
-            System.out.println("reason "+me.getReasonCode());
-            System.out.println("msg "+me.getMessage());
-            System.out.println("loc "+me.getLocalizedMessage());
-            System.out.println("cause "+me.getCause());
-            System.out.println("excep "+me);
-            me.printStackTrace();
-
-    		return new HttpResponse("reason "+me.getReasonCode(), HttpURLConnection.HTTP_INTERNAL_ERROR);
+            
+			nrtlogger.publish();
+			
+        } catch(Exception e) {
+ 
+    		return new HttpResponse("reason "+e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
         }
 		
 		String returnString = "result";
@@ -272,26 +203,6 @@ public class LoggerClass extends Service implements MqttCallback {
 		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
 	}
 
-	/**
-	 * Template of a post function.
-	 * 
-	 * @param myInput The post input the user will provide.
-	 * @return HttpResponse with the returnString
-	 */
-	@POST
-	@Path("/post/{input}")
-	@Produces(MediaType.TEXT_PLAIN)
-	@ApiResponses(value = {
-			@ApiResponse(code = HttpURLConnection.HTTP_OK, message = "REPLACE THIS WITH YOUR OK MESSAGE"),
-			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
-	})
-	@ApiOperation(value = "REPLACE THIS WITH AN APPROPRIATE FUNCTION NAME",
-			notes = "Example method that returns a phrase containing the received input.")
-	public HttpResponse postTemplate(@PathParam("input") String myInput) {
-		String returnString = "";
-		returnString += "Input " + myInput;
-		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
-	}
 
 	// //////////////////////////////////////////////////////////////////////////////////////
 	// Methods required by the LAS2peer framework.
