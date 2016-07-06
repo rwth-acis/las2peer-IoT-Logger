@@ -1,10 +1,24 @@
 package i5.las2peer.services.servicePackage;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.HttpURLConnection;
+import java.net.UnknownHostException;
 import java.security.KeyPair;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.Random;
+
+import org.java_websocket.WebSocket;
+import org.java_websocket.WebSocketImpl;
+import org.java_websocket.framing.Framedata;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
+
+import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.codec.binary.Base64;
 
@@ -45,6 +59,9 @@ import i5.las2peer.security.PassphraseAgent;
 
 public class NRTAgent extends PassphraseAgent implements MqttCallback {
 	
+		//WebSockets server to send data to SWeVA
+		public LoggerServer s;
+	
 	    // put in info for connection to MQTT Broker
 		public String topic = "rwth";
 		public String content = "this client works";
@@ -73,7 +90,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 		
 		/**
 		 * 
-		 * Create a new MonitoringAgent protected by the given passphrase.
+		 * Create a new NRTAgent protected by the given passphrase
 		 * 
 		 * @param passphrase for the secret key of the new agent
 		 * 
@@ -89,9 +106,16 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 			return new NRTAgent(r.nextLong(), CryptoTools.generateKeyPair(), passphrase, CryptoTools.generateSalt());
 	    }
 		
-		public void receiveMQTT(){
+		/**
+		 * 
+		 * Essential method that lets the agent receive data from MQTT network and forward it via a WS connction
+		 * 
+		 */
+		
+		public void logMQTT(){
 			// try to connect to MQTT Broker
 			try {
+				
 	            MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
 	            MqttConnectOptions connOpts = new MqttConnectOptions();
 	            connOpts.setCleanSession(true);
@@ -108,14 +132,24 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 	            sampleClient.subscribe("#");
 	            System.out.println("Subscribed to all topics");
 	            
-	            sampleClient.setCallback(this);
+	            //set port for Loggerserver
+	            WebSocketImpl.DEBUG = true;
+	            int port = 8887; // 843 flash policy port
 	            
+	            //start WebSockets server
+	            s = new LoggerServer(port);
+	    		s.start();
+	    		System.out.println( "LoggerServer started on port: " + s.getPort() );
+	    		
+	    		//set callbacks for MQTT Client
+	            sampleClient.setCallback(this);
+	        
 	            while(sampleClient.isConnected()){
-	            	//Wait for messages to arrive
+	            	// Wait for messages to arrive
 	            }
-
 	            
 	        } catch(MqttException me) {
+	        	
 	            System.out.println("reason "+me.getReasonCode());
 	            System.out.println("msg "+me.getMessage());
 	            System.out.println("loc "+me.getLocalizedMessage());
@@ -123,11 +157,23 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 	            System.out.println("excep "+me);
 	            me.printStackTrace();
 	            
-	        }
+	        } catch (UnknownHostException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 		}
 		
+		/**
+		 * 
+		 * A method to let the NRT Agent publish an MQTT message. Not needed for extended SWeVA
+		 * 
+		 */
+		
 		public void publish(){
-			try {
+			
+			try {	
+				
 	            MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
 	            MqttConnectOptions connOpts = new MqttConnectOptions();
 	            connOpts.setCleanSession(true);
@@ -146,15 +192,23 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 	            sampleClient.disconnect();
 	            System.out.println("Disconnected");
 	            System.exit(0);
-	        } catch(MqttException me) {
-	            System.out.println("reason "+me.getReasonCode());
+	        
+			} catch(MqttException me) {
+	        
+				System.out.println("reason "+me.getReasonCode());
 	            System.out.println("msg "+me.getMessage());
 	            System.out.println("loc "+me.getLocalizedMessage());
 	            System.out.println("cause "+me.getCause());
 	            System.out.println("excep "+me);
 	            me.printStackTrace();
-	        }
+	        
+			}
 		}
+		/**
+		 * essential method that lets the agent connect to an XMPP Server and forward its IoT data
+		 * 
+		 * @throws Exception
+		 */
 		
 		public void receiveXMPP() throws Exception{
 			
@@ -201,12 +255,14 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 	// TODO Auto-generated method stub
 	
 	}
-
+	
+	//handle the message and send it further
 	@Override
 	public void messageArrived(String topic, MqttMessage message)
 	throws Exception {
-	System.out.println(message);  
-	// TODO Message handling 
+	System.out.println(message);
+	String test= message.toString();
+	s.sendToAll(test); 
 	}
 
 	@Override

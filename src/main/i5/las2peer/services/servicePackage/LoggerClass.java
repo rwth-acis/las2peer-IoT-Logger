@@ -115,7 +115,7 @@ public class LoggerClass extends Service implements MqttCallback {
 		
 			nrtlogger = NRTAgent.createMonitoringAgent("pass");
 			nrtlogger.unlockPrivateKey("pass");
-			nrtlogger.receiveMQTT();
+			nrtlogger.logMQTT();
 		
 		} catch(Exception e){
 			return new HttpResponse(e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
@@ -125,7 +125,7 @@ public class LoggerClass extends Service implements MqttCallback {
 	}
 
 	@GET
-	@Path("/starttXMPP")
+	@Path("/startXMPP")
 	@Produces(MediaType.TEXT_PLAIN)
 	@ApiOperation(value = "XMPP Connect",
 			notes = "connect to an XMPP network")

@@ -2,7 +2,6 @@
   <settings defaultResolver="chain" />
   <resolvers>
     <chain name="chain">
-      <ibiblio name='Eclipse Paho Repo' m2compatible='true' root='https://repo.eclipse.org/content/repositories/paho-releases/' />
       <ibiblio name="central" m2compatible="true" />
       <ibiblio name="acis-internal" m2compatible="true" root="http://role.dbis.rwth-aachen.de:9911/archiva/repository/internal/"/>
       <ibiblio name="acis-snapshots" m2compatible="true" root="http://role.dbis.rwth-aachen.de:9911/archiva/repository/snapshots/"/>
