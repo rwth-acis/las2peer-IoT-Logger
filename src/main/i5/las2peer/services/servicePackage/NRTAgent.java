@@ -10,6 +10,8 @@ import java.security.KeyPair;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import org.java_websocket.WebSocket;
@@ -49,18 +51,35 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import org.jivesoftware.smack.AbstractXMPPConnection;
 import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
+import org.jivesoftware.smack.Manager;
+import org.jivesoftware.smack.MessageListener;
+import org.jivesoftware.smack.SmackException.NotConnectedException;
+import org.jivesoftware.smack.StanzaListener;
+import org.jivesoftware.smack.XMPPException.XMPPErrorException;
+import org.jivesoftware.smack.chat.ChatManager;
+import org.jivesoftware.smack.chat.ChatManagerListener;
+import org.jivesoftware.smack.filter.StanzaTypeFilter;
+import org.jivesoftware.smack.packet.Stanza;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
+import org.jivesoftware.smackx.commands.AdHocCommand.Status;
+import org.jivesoftware.smackx.commands.AdHocCommandManager;
+import org.jivesoftware.smackx.commands.RemoteCommand;
+import org.jivesoftware.smackx.xdata.Form;
+import org.jivesoftware.smackx.xdata.FormField;
 
 import i5.las2peer.security.Agent;
 import i5.las2peer.security.Context;
 import i5.las2peer.security.L2pSecurityException;
 import i5.las2peer.security.PassphraseAgent;
 
-public class NRTAgent extends PassphraseAgent implements MqttCallback {
+public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaListener {
 	
 		//WebSockets server to send data to SWeVA
 		public LoggerServer s;
+		
+		//AdHocCommandManager to send AdHoc commands over XMPP
+		AdHocCommandManager cmnder;
 	
 	    // put in info for connection to MQTT Broker
 		public String topic = "rwth";
@@ -213,9 +232,9 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 		public void receiveXMPP() throws Exception{
 			
 			XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
-			configBuilder.setUsernameAndPassword("melvin", "test");
+			configBuilder.setUsernameAndPassword("admin", "test");
 			configBuilder.setResource("logger");
-			configBuilder.setServiceName("desktop-n4f68bb");
+			configBuilder.setServiceName("192.168.56.10");
 			configBuilder.setSecurityMode(SecurityMode.disabled);
 			
 			AbstractXMPPConnection connection = new XMPPTCPConnection(configBuilder.build());
@@ -227,6 +246,55 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 				// Log into the server
 				connection.login();
 				
+				//set port for Loggerserver
+	            WebSocketImpl.DEBUG = true;
+	            int port = 8887; // 843 flash policy port
+	            
+	            //start WebSockets server
+	            s = new LoggerServer(port);
+	    		s.start();
+	    		System.out.println("LoggerServer started on port: " + s.getPort());
+	    		
+	    		//create a new AdHocCommandManager to send AdHoc messages
+	    		cmnder = AdHocCommandManager.getAddHocCommandsManager(connection);
+
+	    		//execute the command to start logging stanzas
+	    		RemoteCommand log = cmnder.getRemoteCommand("192.168.56.10", "logexchange/stanza");
+	    		log.execute();
+	    		
+	    		//save fields to choose options
+	    		Form reply = log.getForm();
+	    		FormField stanzatype = reply.getField("stanzatype");
+	    		FormField conditions = reply.getField("conditions");
+	    		FormField direction = reply.getField("direction");
+	    		
+	    		//receive answer form
+	    		reply = log.getForm().createAnswerForm();
+	    		
+	    		reply.setAnswer("stanzatype", stanzatype.getValues().subList(0, 1));
+	    		reply.setAnswer("conditions", conditions.getValues().subList(0, 1));
+	    		reply.setAnswer("top", true);
+	    		reply.setAnswer("direction", direction.getValues().subList(0, 1));
+	    		reply.setAnswer("private", true);
+	    		reply.setAnswer("iqresponse", false);
+	    		
+	    		//send reply form
+	    		log.next(reply);
+
+	    		//check if logging session was started
+	    		if(!(log.getNotes().get(0).getValue().contains("started"))){
+	    			throw new Exception();
+	    		}
+	    		
+	    		connection.addSyncStanzaListener(this, StanzaTypeFilter.MESSAGE);
+	    		
+	    		
+	    		while(connection.isConnected()){
+	    			
+	    		}
+	    		
+	    		
+	    		
 			} catch(Exception e){
 				
 			
@@ -260,13 +328,21 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback {
 	@Override
 	public void messageArrived(String topic, MqttMessage message)
 	throws Exception {
+		
 	System.out.println(message);
 	String test= message.toString();
 	s.sendToAll(test); 
+	
 	}
 
 	@Override
 	public void deliveryComplete(IMqttDeliveryToken token) {
 	// TODO Auto-generated method stub
+	}
+
+	@Override
+	public void processPacket(Stanza packet) throws NotConnectedException {
+		System.out.println(packet.toString());
+		
 	}
 }
