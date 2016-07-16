@@ -58,6 +58,7 @@ import org.jivesoftware.smack.StanzaListener;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.chat.ChatManager;
 import org.jivesoftware.smack.chat.ChatManagerListener;
+import org.jivesoftware.smack.filter.StanzaFilter;
 import org.jivesoftware.smack.filter.StanzaTypeFilter;
 import org.jivesoftware.smack.packet.Stanza;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
@@ -234,7 +235,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 			XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
 			configBuilder.setUsernameAndPassword("admin", "test");
 			configBuilder.setResource("logger");
-			configBuilder.setServiceName("192.168.56.10");
+			configBuilder.setServiceName("192.168.43.10");
 			configBuilder.setSecurityMode(SecurityMode.disabled);
 			
 			AbstractXMPPConnection connection = new XMPPTCPConnection(configBuilder.build());
@@ -259,7 +260,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	    		cmnder = AdHocCommandManager.getAddHocCommandsManager(connection);
 
 	    		//execute the command to start logging stanzas
-	    		RemoteCommand log = cmnder.getRemoteCommand("192.168.56.10", "logexchange/stanza");
+	    		RemoteCommand log = cmnder.getRemoteCommand("192.168.43.10", "logexchange/stanza");
 	    		log.execute();
 	    		
 	    		//save fields to choose options
@@ -271,11 +272,18 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	    		//receive answer form
 	    		reply = log.getForm().createAnswerForm();
 	    		
+	    		//only message stanzs logged
 	    		reply.setAnswer("stanzatype", stanzatype.getValues().subList(0, 1));
 	    		reply.setAnswer("conditions", conditions.getValues().subList(0, 1));
-	    		reply.setAnswer("top", true);
+	    		
+	    		//get whole message, not only top tag
+	    		reply.setAnswer("top", false);
+
+	    		//get smart direction
 	    		reply.setAnswer("direction", direction.getValues().subList(0, 1));
-	    		reply.setAnswer("private", true);
+	    		
+	    		//don't filter private content
+	    		reply.setAnswer("private", false);
 	    		reply.setAnswer("iqresponse", false);
 	    		
 	    		//send reply form
@@ -286,7 +294,15 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	    			throw new Exception();
 	    		}
 	    		
-	    		connection.addSyncStanzaListener(this, StanzaTypeFilter.MESSAGE);
+	    		//specify filter that only returns log data with resource "logger"
+	    		StanzaFilter myFilter = new StanzaFilter() {
+	    		     public boolean accept(Stanza stanza) {
+	    		    	 return stanza.getTo().contains("/logger");
+	    		     }
+	    		 };
+	    		
+	    		//add SyncStanzaListener that collects all messages
+	    		connection.addSyncStanzaListener(this, myFilter);
 	    		
 	    		
 	    		while(connection.isConnected()){
