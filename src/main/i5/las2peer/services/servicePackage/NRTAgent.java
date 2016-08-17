@@ -40,6 +40,7 @@ import i5.las2peer.tools.SerializeTools;
 import i5.simpleXML.Element;
 import i5.simpleXML.Parser;
 import i5.simpleXML.XMLSyntaxException;
+import net.minidev.json.JSONObject;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -346,9 +347,27 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	throws Exception {
 		
 	System.out.println(message);
-	String test= message.toString();
-	s.sendToAll(test); 
+	String test = message.toString();
 	
+	//check if it sensor data
+	int k = test.indexOf("type");
+	
+	//transform into json object
+	if(k!=-1){
+	test = test.substring(k);
+	String[] fields = test.split(",");
+	String id = fields[0];
+	String label = fields[1];
+	JSONObject a = new JSONObject();
+	a.put("id", id);
+	a.put("label", label);
+	System.out.println(a.toJSONString());
+	
+	//send String representation of JSONObject
+	s.sendToAll(a.toJSONString());
+	
+	//now it is up to SWeVA to handle the JSON Object
+	}
 	}
 
 	@Override
@@ -360,5 +379,30 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	public void processPacket(Stanza packet) throws NotConnectedException {
 		System.out.println(packet.toString());
 		
+		//get String representation of the String
+		String message = packet.toString();	
+		
+		//check if it sensor data
+		int k = message.indexOf("type");
+		
+		//transform into json object
+		if(k!=-1){
+		String test = message.substring(k);
+		String[] fields = message.split(",");
+		String id = fields[0];
+		String label = fields[1];
+		
+		//additionally get sender and receiver
+		String sender = packet.getFrom();
+		String receiver = packet.getTo();
+		
+		JSONObject a = new JSONObject();
+		a.put("id", id);
+		a.put("label", label);
+		a.put("sender", sender);
+		a.put("receiver", receiver);
+		System.out.println(a.toJSONString());
+		
+		}
 	}
 }

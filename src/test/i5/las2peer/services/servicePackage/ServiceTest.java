@@ -115,7 +115,7 @@ public class ServiceTest {
 
 		try {
 			c.setLogin(Long.toString(testAgent.getId()), testPass);
-			ClientResponse result = c.sendRequest("GET", mainPath + "startXMPP", "");
+			ClientResponse result = c.sendRequest("GET", mainPath + "receiveXMPP", "");
 			assertEquals(200, result.getHttpCode());
 			assertTrue(result.getResponse().trim().contains("result")); // YOUR RESULT VALUE HERE
 			System.out.println("Result of 'testGet': " + result.getResponse().trim());
@@ -139,7 +139,7 @@ public class ServiceTest {
 
 		try {
 			c.setLogin(Long.toString(testAgent.getId()), testPass);
-			ClientResponse result = c.sendRequest("GET", mainPath + "receive", "");
+			ClientResponse result = c.sendRequest("GET", mainPath + "receiveXMPP", "");
 			
 			assertEquals(200, result.getHttpCode());
 			

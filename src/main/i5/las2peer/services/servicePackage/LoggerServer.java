@@ -13,6 +13,9 @@ import org.java_websocket.framing.Framedata;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONObject;
+
 public class LoggerServer extends WebSocketServer {
 
 	public LoggerServer( int port ) throws UnknownHostException {
