@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.UnknownHostException;
 import java.security.KeyPair;
@@ -20,7 +21,6 @@ import org.java_websocket.framing.Framedata;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
-import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.codec.binary.Base64;
 
@@ -37,9 +37,7 @@ import i5.las2peer.tools.CryptoException;
 import i5.las2peer.tools.CryptoTools;
 import i5.las2peer.tools.SerializationException;
 import i5.las2peer.tools.SerializeTools;
-import i5.simpleXML.Element;
-import i5.simpleXML.Parser;
-import i5.simpleXML.XMLSyntaxException;
+
 import net.minidev.json.JSONObject;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -51,6 +49,7 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import org.jivesoftware.smack.AbstractXMPPConnection;
+import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
 import org.jivesoftware.smack.Manager;
 import org.jivesoftware.smack.MessageListener;
@@ -69,6 +68,16 @@ import org.jivesoftware.smackx.commands.AdHocCommandManager;
 import org.jivesoftware.smackx.commands.RemoteCommand;
 import org.jivesoftware.smackx.xdata.Form;
 import org.jivesoftware.smackx.xdata.FormField;
+import org.w3c.dom.Document;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.w3c.dom.CharacterData;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 import i5.las2peer.security.Agent;
 import i5.las2peer.security.Context;
@@ -77,6 +86,13 @@ import i5.las2peer.security.PassphraseAgent;
 
 public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaListener {
 	
+		//Connection for XMPP server
+		public AbstractXMPPConnection connection;
+		public String xmppAddress = "192.168.56.10";
+		public String xmppUsername = "peer";
+		public String xmppPassword = "test";
+		public String xmppResource = "logger";
+		
 		//WebSockets server to send data to SWeVA
 		public LoggerServer s;
 		
@@ -84,6 +100,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		AdHocCommandManager cmnder;
 	
 	    // put in info for connection to MQTT Broker
+		public int nodeid = 0;
 		public String topic = "rwth";
 		public String content = "this client works";
 		public int qos = 2;
@@ -126,6 +143,37 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 			Random r = new Random();
 			return new NRTAgent(r.nextLong(), CryptoTools.generateKeyPair(), passphrase, CryptoTools.generateSalt());
 	    }
+		
+		/**
+		 * 
+		 * Changes the current XMPP server to log int
+		 * 
+		 * @param ip
+		 * @return
+		 */
+		public void changeServer(String address){
+			
+			
+			//if client is not connected or has not connected yet
+			if((!connection.isConnected()) || (connection == null)){
+				
+				xmppAddress = address;
+				
+			}
+			
+			else{
+				
+				connection.disconnect();
+				
+				xmppAddress = address;
+				
+				try{
+				this.receiveXMPP();
+				} catch (Exception e){
+					
+				}
+			}
+		}
 		
 		/**
 		 * 
@@ -234,9 +282,9 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		public void receiveXMPP() throws Exception{
 			
 			XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
-			configBuilder.setUsernameAndPassword("admin", "test");
-			configBuilder.setResource("logger");
-			configBuilder.setServiceName("192.168.43.10");
+			configBuilder.setUsernameAndPassword(xmppUsername, xmppPassword);
+			configBuilder.setResource(xmppResource);
+			configBuilder.setServiceName(xmppAddress);
 			configBuilder.setSecurityMode(SecurityMode.disabled);
 			
 			AbstractXMPPConnection connection = new XMPPTCPConnection(configBuilder.build());
@@ -261,7 +309,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	    		cmnder = AdHocCommandManager.getAddHocCommandsManager(connection);
 
 	    		//execute the command to start logging stanzas
-	    		RemoteCommand log = cmnder.getRemoteCommand("192.168.43.10", "logexchange/stanza");
+	    		RemoteCommand log = cmnder.getRemoteCommand(xmppAddress, "logexchange/stanza");
 	    		log.execute();
 	    		
 	    		//save fields to choose options
@@ -298,7 +346,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	    		//specify filter that only returns log data with resource "logger"
 	    		StanzaFilter myFilter = new StanzaFilter() {
 	    		     public boolean accept(Stanza stanza) {
-	    		    	 return stanza.getTo().contains("/logger");
+	    		       return stanza.getTo().contains("/logger");
 	    		     }
 	    		 };
 	    		
@@ -377,30 +425,44 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 
 	@Override
 	public void processPacket(Stanza packet) throws NotConnectedException {
-		System.out.println(packet.toString());
 		
 		//get String representation of the String
-		String message = packet.toString();	
-		
+		String message = packet.toString();
+		System.out.println(message);
 		//check if it sensor data
 		int k = message.indexOf("type");
+		boolean sensor = message.contains("sensor");
+		
 		
 		//transform into json object
-		if(k!=-1){
+		if((k!=-1) && (sensor)){
+		//parse escaped quotes
+		message = message.replaceAll("&quot;", "\"");
 		String test = message.substring(k);
-		String[] fields = message.split(",");
-		String id = fields[0];
-		String label = fields[1];
+		String[] data = message.split("log xmlns");
+		
+		for(int i = 1; i < data.length; i++){
+			JSONObject a = new JSONObject();
+			String event = data[i];
+			
+			String [] fields = event.split("\"type\":\"");
+			String [] type = fields[1].split(",");
+			type[0] = type[0].replaceAll("\"", "");
+			String typejson = type[0];
+			a.put("id", event + String.valueOf(Math.random()));
+			String value = type[1];
+			value = value.substring(value.indexOf("[")+1, value.indexOf("]"));
+			a.put("label", value + typejson);
+			s.sendToAll(a.toJSONString());
+		}
 		
 		//additionally get sender and receiver
 		String sender = packet.getFrom();
 		String receiver = packet.getTo();
-		
+		System.out.println("Sender: " + sender + " and receiver: " + receiver);
 		JSONObject a = new JSONObject();
-		a.put("id", id);
-		a.put("label", label);
-		a.put("sender", sender);
-		a.put("receiver", receiver);
+		
+		
 		System.out.println(a.toJSONString());
 		
 		}

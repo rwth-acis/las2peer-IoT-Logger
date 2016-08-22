@@ -29,5 +29,6 @@
 	<classpathentry kind="lib" path="service/dnsjava-2.1.7.jar"/>
 	<classpathentry kind="lib" path="service/Java-WebSocket-1.3.0.jar"/>
 	<classpathentry kind="lib" path="service/org.eclipse.paho.client.mqttv3-1.1.0.jar"/>
+	<classpathentry kind="lib" path="service/xstream-1.4.9.jar"/>
 	<classpathentry kind="output" path="output"/>
 </classpath>
