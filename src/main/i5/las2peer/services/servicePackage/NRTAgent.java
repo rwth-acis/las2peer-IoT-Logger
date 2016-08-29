@@ -16,7 +16,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
 import java.util.Random;
 
 import org.java_websocket.WebSocket;
@@ -27,6 +29,7 @@ import org.java_websocket.server.WebSocketServer;
 
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import i5.las2peer.communication.Message;
 import i5.las2peer.communication.MessageException;
@@ -60,8 +63,10 @@ import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
 import org.jivesoftware.smack.Manager;
 import org.jivesoftware.smack.MessageListener;
 import org.jivesoftware.smack.PacketListener;
+import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.StanzaListener;
+import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.chat.Chat;
 import org.jivesoftware.smack.chat.ChatManager;
@@ -74,6 +79,8 @@ import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 import org.jivesoftware.smackx.commands.AdHocCommand.Status;
 import org.jivesoftware.smackx.commands.AdHocCommandManager;
 import org.jivesoftware.smackx.commands.RemoteCommand;
+import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
+import org.jivesoftware.smackx.disco.packet.DiscoverItems;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.jivesoftware.smackx.muc.MultiUserChatManager;
 import org.jivesoftware.smackx.xdata.Form;
@@ -98,6 +105,7 @@ import i5.las2peer.security.PassphraseAgent;
 
 public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaListener {
 	
+		
 		//Connection for XMPP server
 		public AbstractXMPPConnection connection;
 		public String xmppAddress = "192.168.43.10";
@@ -114,6 +122,9 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		//Array for saving subscriptions in MQTT
 		JSONArray subs;
 	    
+		//Array for saving statistics 
+		CircularFifoQueue<String> stats;
+		
 		// put in info for connection to MQTT Broker
 		public int nodeid = 0;
 		public String topic = "rwth";
@@ -394,6 +405,9 @@ try{
 	    		RemoteCommand log = cmnder.getRemoteCommand(xmppAddress, "logexchange/status");
 	    		log.execute();
 	    		
+	    		//create queue to use for stats
+	    		stats = new CircularFifoQueue<String>(20);
+	    		
 	    		//save fields to choose options
 	    		Form reply = log.getForm();
 	    		FormField statustype = reply.getField("statustype");
@@ -402,11 +416,13 @@ try{
 	    		
 	    		//receive answer form
 	    		reply = log.getForm().createAnswerForm();
+	    		List<String> answers = new ArrayList<String>();
+	    		answers.add("online_users");
 	    		
 	    		//only message stanzs logged
-	    		reply.setAnswer("statustype", "total_users");
+	    		reply.setAnswer("statustype", answers.subList(0, 1));
 	    		reply.setAnswer("interval", 30);
-	    		reply.setAnswer("onupdate", 0);
+	    		reply.setAnswer("onupdate", false);
 
 	    		//send reply form
 	    		log.next(reply);
@@ -464,7 +480,7 @@ try{
 			configBuilder.setServiceName(xmppAddress);
 			configBuilder.setSecurityMode(SecurityMode.disabled);
 			
-			AbstractXMPPConnection connection = new XMPPTCPConnection(configBuilder.build());
+			connection = new XMPPTCPConnection(configBuilder.build());
 			
 			try{
 				
@@ -531,8 +547,6 @@ try{
 	    		//add SyncStanzaListener that collects all messages
 	    		connection.addSyncStanzaListener(this, myFilter);
 	    		
-	    		MultiUserChatManager.getInstanceFor(connection);
-	    		
 	    		while(connection.isConnected()){
 	    			
 	    		}
@@ -549,6 +563,39 @@ try{
 		@Override
 		public void receiveMessage(Message message, Context context) throws MessageException {
 			
+			
+		}
+		
+		public void sendList(){
+			
+			JSONObject statjson = new JSONObject();
+			JSONObject config = new JSONObject();
+			config.put("label", "XMPP Server Statistics");
+			config.put("ylabel", "Online users");
+			config.put("xlabel", "time");
+			config.put("xtype", "date");
+			config.put("ytype", "linear");
+			config.put("xparse", "-");
+			config.put("yparse", "");
+			config.put("xprint", "%w-%m-%y");
+			config.put("yprint", "");
+			statjson.put("config", config);
+			
+			JSONObject data = new JSONObject();
+			data.put("label", "additions");
+			JSONArray entries = new JSONArray();
+			for(int i = 0; i<stats.size();i++){
+				String toConvert = stats.get(i);
+				String[] fields = toConvert.split(":");
+				JSONArray entry = new JSONArray();
+				entry.add(fields[0]);
+				entry.add(fields[1]);
+				entries.add(entry);
+			}
+			data.put("data", entries);
+			
+			statjson.put("data", data);
+			s.sendToAll(statjson.toJSONString());
 			
 		}
 		
@@ -601,6 +648,20 @@ try{
 	
 	@Override
 	public void processPacket(Stanza packet) throws NotConnectedException {
+		
+		ServiceDiscoveryManager discoManager =  ServiceDiscoveryManager.getInstanceFor(connection);
+	    DiscoverItems discoItems;
+		try {
+			discoItems = discoManager.discoverItems("test@conference.192.168.43.10");
+			discoItems.getType();
+		} catch (NoResponseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (XMPPErrorException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		
 		//get String representation of the String
 		String message = packet.toString();
