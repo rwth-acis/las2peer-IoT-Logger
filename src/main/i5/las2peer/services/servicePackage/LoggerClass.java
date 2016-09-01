@@ -215,6 +215,36 @@ public class LoggerClass extends Service implements MqttCallback {
 	}
 	
 	/**
+	 * Log statistics of an mqtt server
+	 * 
+	 * @return 
+	 */
+	
+	@GET
+	@Path("/stateMQTT")
+	@Produces(MediaType.TEXT_PLAIN)
+	@ApiOperation(value = "Log MQTT States",
+			notes = "logs certain stats of a MQTT SERVER")
+	@ApiResponses(value = {
+			@ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Logging Successful"),
+			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
+	})
+	public HttpResponse stateMQTT() {
+		
+		try{
+		
+			nrtlogger = NRTAgent.createMonitoringAgent("pass");
+			nrtlogger.unlockPrivateKey("pass");
+			nrtlogger.mqttState("clients/count");
+		
+		} catch(Exception e){
+			return new HttpResponse(e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
+		}
+		String returnString = "Succesfully started logging of stanzas in XMPP";
+		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
+	}
+	
+	/**
 	 * Template of a get function.
 	 * 
 	 * @return HttpResponse with the returnString

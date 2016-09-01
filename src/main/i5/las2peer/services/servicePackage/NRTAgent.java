@@ -117,13 +117,13 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		public LoggerServer s;
 		
 		//AdHocCommandManager to send AdHoc commands over XMPP
-		AdHocCommandManager cmnder;
+		public AdHocCommandManager cmnder;
 	
 		//Array for saving subscriptions in MQTT
-		JSONArray subs;
+		public JSONArray subs;
 	    
 		//Array for saving statistics 
-		CircularFifoQueue<String> stats;
+		public CircularFifoQueue<String> stats;
 		
 		// put in info for connection to MQTT Broker
 		public int nodeid = 0;
@@ -370,6 +370,101 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	            System.out.println("excep "+me);
 	            me.printStackTrace();
 	        
+			}
+		}
+		
+		/**
+		 * 
+		 * A method to let the las2peer service log certain statistics from the mqtt srever
+		 * 
+		 * @param Wanted stat
+		 * 
+		 * 
+		 */
+		public void mqttState(String stat){
+		
+			try{
+				
+			 	MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
+	            MqttConnectOptions connOpts = new MqttConnectOptions();
+	            connOpts.setCleanSession(true);
+	            connOpts.setKeepAliveInterval(30);
+	    		connOpts.setUserName(clientId);
+	    		connOpts.setPassword(password.toCharArray());
+	    		connOpts.setConnectionTimeout(0);
+	    		connOpts.setKeepAliveInterval(0);
+	    		
+	            System.out.println("Connecting to broker: "+broker);
+	            sampleClient.connect(connOpts);
+	            System.out.println("Connected");
+	            System.out.println("Publishing message: "+content);
+	            
+	          //set port for Loggerserver
+	            WebSocketImpl.DEBUG = true;
+	            int port = 8887; // 843 flash policy port
+	            String result = "";
+	            
+	            try{
+	            	  URL url = new URL("http://127.0.0.1:18083/api/stats");
+	            	  URLConnection conn = url.openConnection();
+	            	  conn.setConnectTimeout(30000); // 30 seconds time out
+	            	 
+	            	   String user_pass = "admin" + ":" + "test";
+	            	   String encoded = Base64.encodeBase64String( user_pass.getBytes() );
+	            	    conn.setRequestProperty("Authorization", "Basic " + encoded);
+	            	  
+	            	 
+	            	  String line = "";
+	            	  StringBuffer sb = new StringBuffer();
+	            	  BufferedReader input = new BufferedReader(new InputStreamReader(conn.getInputStream()) );
+	            	  while((line = input.readLine()) != null)
+	            	    sb.append(line);
+	            	  input.close();
+	            	  result =  sb.toString();
+	            	 
+	            	}catch(Exception e){
+	            		String error = e.toString();
+	            	}
+	            
+	            JSONObject json = null;
+	            JSONParser parser = new JSONParser();
+	            try{
+	            
+	            //transformed result to JSON Object
+	            json = (JSONObject) parser.parse(result);
+	            String[] data = result.split(",");
+	            String value;
+	            this.stats = new CircularFifoQueue();
+	            
+	            for(int i=0; i<data.length;i++){
+	            	
+	            	if(data[i].contains(stat)){
+	            		String[] split = data[i].split(":");
+	            		value = split[1];
+	            		String newvalue = stat + ":" + value;
+	            		boolean test = this.stats.offer(newvalue);
+	            	}
+	            	
+	            }
+	 
+	            }catch(Exception e){
+	            	System.out.println(e.getMessage());
+	            }
+	            
+	            //get information according to String parameter
+
+	            //start WebSockets server
+	            s = new LoggerServer(port);
+	    		s.start();
+	    		System.out.println( "LoggerServer started on port: " + s.getPort() );
+	    		
+	    		sendList();
+	    		
+	    		//set callbacks for MQTT Client
+	            sampleClient.setCallback(this);
+	        
+			} catch(Exception e){
+				
 			}
 		}
 		
