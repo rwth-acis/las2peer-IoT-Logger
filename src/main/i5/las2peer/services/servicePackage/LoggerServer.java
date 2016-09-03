@@ -13,17 +13,20 @@ import org.java_websocket.framing.Framedata;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
-import net.minidev.json.JSONArray;
-import net.minidev.json.JSONObject;
+import org.json.*;
 
 public class LoggerServer extends WebSocketServer {
+	
+	public NRTAgent agent;
 
-	public LoggerServer( int port ) throws UnknownHostException {
+	public LoggerServer( int port, NRTAgent nrtagent) throws UnknownHostException {
 		super( new InetSocketAddress( port ) );
+		this.agent = nrtagent;
 	}
 
-	public LoggerServer( InetSocketAddress address ) {
+	public LoggerServer( InetSocketAddress address, NRTAgent nrtagent) {
 		super( address );
+		this.agent = nrtagent;
     }
 	
 	@Override
@@ -40,7 +43,54 @@ public class LoggerServer extends WebSocketServer {
 	
 	@Override
 	public void onMessage( WebSocket conn, String message ) {
-		this.sendToAll( message );
+
+		JSONObject rec = new JSONObject(message);
+		String command = (String) rec.get("command");
+		
+		
+		if(command.equals("xmpp")){
+			
+			if(agent.running == false){
+				
+				try{
+					
+				String xmppaddress = (String) rec.get("address");
+				this.agent.receiveXMPP(xmppaddress);
+				
+				}catch(Exception e){
+					
+				}
+			}
+			
+			else{
+				System.out.println("Agent is busy");
+			}
+		}
+		
+		if(command.equals("mqtt")){
+			
+			if(agent.running == false){
+				
+				try{
+					
+				String mqttaddress = (String) rec.get("address");	
+				this.agent.logMQTT(mqttaddress);
+				
+				}catch(Exception e){
+					
+				}
+			}
+			
+			else{
+				System.out.println("Agent is busy");
+			}
+		}
+		
+		if(command.equals("stop")){
+			agent.running = false;
+		}
+		
+		
 		System.out.println( conn + ": " + message );
     }
 	

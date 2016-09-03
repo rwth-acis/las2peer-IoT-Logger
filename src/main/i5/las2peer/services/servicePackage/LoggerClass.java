@@ -101,10 +101,34 @@ public class LoggerClass extends Service implements MqttCallback {
 	 */
 	
 	@GET
-	@Path("/start")
+	@Path("/startMQTT")
 	@Produces(MediaType.TEXT_PLAIN)
 	@ApiOperation(value = "MQTT Log",
 			notes = "logs a MQTT Broker")
+	@ApiResponses(value = {
+			@ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Logging Successful"),
+			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
+	})
+	public HttpResponse startMQTT() {
+		
+		try{
+		
+			nrtlogger = NRTAgent.createMonitoringAgent("pass");
+			nrtlogger.unlockPrivateKey("pass");
+			nrtlogger.logMQTT("tcp://localhost:1883");
+		
+		} catch(Exception e){
+			return new HttpResponse(e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
+		}
+		String returnString = "Succesfully started logging of MQTT";
+		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
+	}
+
+	@GET
+	@Path("/start")
+	@Produces(MediaType.TEXT_PLAIN)
+	@ApiOperation(value = "Start",
+			notes = "Starts the IoT Logger")
 	@ApiResponses(value = {
 			@ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Logging Successful"),
 			@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Unauthorized")
@@ -115,12 +139,12 @@ public class LoggerClass extends Service implements MqttCallback {
 		
 			nrtlogger = NRTAgent.createMonitoringAgent("pass");
 			nrtlogger.unlockPrivateKey("pass");
-			nrtlogger.logMQTT();
+			nrtlogger.start();
 		
 		} catch(Exception e){
 			return new HttpResponse(e.getMessage(), HttpURLConnection.HTTP_INTERNAL_ERROR);
 		}
-		String returnString = "Succesfully started logging of MQTT";
+		String returnString = "Succesfully started logging";
 		return new HttpResponse(returnString, HttpURLConnection.HTTP_OK);
 	}
 
@@ -139,7 +163,7 @@ public class LoggerClass extends Service implements MqttCallback {
 		
 			nrtlogger = NRTAgent.createMonitoringAgent("pass");
 			nrtlogger.unlockPrivateKey("pass");
-			nrtlogger.receiveXMPP();
+			nrtlogger.receiveXMPP("192.168.43.10");
 		
 		}
 		
