@@ -83,6 +83,7 @@ import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.disco.packet.DiscoverItems;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.jivesoftware.smackx.muc.MultiUserChatManager;
+import org.jivesoftware.smackx.muc.Occupant;
 import org.jivesoftware.smackx.xdata.Form;
 import org.jivesoftware.smackx.xdata.FormField;
 import org.w3c.dom.Document;
@@ -122,6 +123,8 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		//Array for saving subscriptions in MQTT
 		public JSONArray subs;
 	    
+		public MultiUserChatManager manager;
+		
 		//Array for saving statistics 
 		public CircularFifoQueue<String> stats;
 		
@@ -638,9 +641,36 @@ try{
 	    		    	 return true;
 	    		     }
 	    		 };
+	    		 
+	    		 this.manager = MultiUserChatManager.getInstanceFor(connection);
+		    		MultiUserChat muc = manager.getMultiUserChat("rwth.storm@conference.192.168.43.10");
+		    		muc.createOrJoin("adminlogger");
+		    		muc.addMessageListener(new MessageListener(){
+		    			
+		    			@Override
+		    			public void processMessage(org.jivesoftware.smack.packet.Message message){
+		    	            
+		    				JSONObject send = new JSONObject();
+		    				send.put("sender", message.getFrom());
+		    				JSONArray receiver = new JSONArray();
+		  
+		    				List<String> list = muc.getOccupants();
+		    				for(int i = 0; i<list.size();i++){
+		    					
+		    	            Occupant user = muc.getOccupant(list.get(i));
+		    	            String receiverId = user.getJid();
+		    	            receiver.add(receiverId);
+		    	            
+		    				}
+		    				send.put("receivers", receiver);
+		    				s.sendToAll(send.toJSONString());
+		    	            
+		    	        }
+		    			
+		    		});
 	    		
-	    		//add SyncStanzaListener that collects all messages
-	    		connection.addSyncStanzaListener(this, myFilter);
+//	    		//add SyncStanzaListener that collects all messages
+//	    		connection.addSyncStanzaListener(this, myFilter);
 	    		
 	    		while(connection.isConnected()){
 	    			
