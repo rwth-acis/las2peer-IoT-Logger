@@ -47,47 +47,83 @@ public class LoggerServer extends WebSocketServer {
 		JSONObject rec = new JSONObject(message);
 		String command = (String) rec.get("command");
 		
-		
+		//user wants to start xmpp logging
 		if(command.equals("xmpp")){
 			
-			if(agent.running == false){
-				
-				try{
+			String xmppaddress = (String) rec.get("address");
+			//if xmpp not running
+			if(agent.xmpprunning == false){
+				// switch from mqtt to xmpp
+				if(agent.mqttrunning == true){
+					agent.mqttrunning=false;
+					//wait a little bit 
+					try{
+						Thread.sleep(700);
+						this.agent.receiveXMPP(xmppaddress);
+						}
+						catch(Exception e){
+							System.out.println("sleep interrupted, xmpp");
+						}
 					
-				String xmppaddress = (String) rec.get("address");
-				this.agent.receiveXMPP(xmppaddress);
-				
-				}catch(Exception e){
+				}
+				//or just start mqtt logging regular
+				else{
+					try{
+						
+					this.agent.receiveXMPP(xmppaddress);
 					
+					}catch(Exception e){
+						
+					}
 				}
 			}
 			
 			else{
+				
 				System.out.println("Agent is busy");
 			}
 		}
-		
+		//if user wants to start logging mqtt
 		if(command.equals("mqtt")){
-			
-			if(agent.running == false){
-				
-				try{
+			String mqttaddress = (String) rec.get("address");
+			//if mqtt logging not running
+			if(agent.mqttrunning == false){
+				// but xmpp is still running
+				if(agent.xmpprunning == true){
+					agent.xmpprunning = false;
+					agent.connection.disconnect();
+					try{
+					Thread.sleep(100);
+					}
+					catch(Exception e){
+						System.out.println("sleep interrupted");
+					}
+					this.agent.logMQTT(mqttaddress);
+				}
+				//or just start mqtt logging regularly
+				else{
+					try{
+						
+					this.agent.logMQTT(mqttaddress);
 					
-				String mqttaddress = (String) rec.get("address");	
-				this.agent.logMQTT(mqttaddress);
-				
-				}catch(Exception e){
-					
+					}catch(Exception e){
+						
+					}
 				}
 			}
 			
 			else{
+				agent.s.sendToAll(agent.subs.toJSONString());
 				System.out.println("Agent is busy");
 			}
 		}
 		
 		if(command.equals("stop")){
-			agent.running = false;
+			
+			agent.mqttrunning = false;
+			if(agent.connection.isConnected()){
+				agent.connection.disconnect();
+			}
 		}
 		
 		

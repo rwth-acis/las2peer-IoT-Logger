@@ -26,7 +26,7 @@ import i5.las2peer.webConnector.client.MiniClient;
 public class ServiceTest {
 
 	private static final String HTTP_ADDRESS = "http://127.0.0.1";
-	private static final int HTTP_PORT = WebConnector.DEFAULT_HTTP_PORT+9;
+	private static final int HTTP_PORT = WebConnector.DEFAULT_HTTP_PORT;
 
 	private static LocalNode node;
 	private static WebConnector connector;
@@ -102,7 +102,6 @@ public class ServiceTest {
 		System.out.println(logStream.toString());
 
 	}
-	
 
 	/**
 	 * 
@@ -116,9 +115,7 @@ public class ServiceTest {
 
 		try {
 			c.setLogin(Long.toString(testAgent.getId()), testPass);
-
-			ClientResponse result = c.sendRequest("GET", mainPath + "start", "");
-			
+			ClientResponse result = c.sendRequest("GET", mainPath + "startXMPP", "");
 			assertEquals(200, result.getHttpCode());
 			assertTrue(result.getResponse().trim().contains("result")); // YOUR RESULT VALUE HERE
 			System.out.println("Result of 'testGet': " + result.getResponse().trim());

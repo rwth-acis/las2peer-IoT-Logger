@@ -20,7 +20,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.WebSocketImpl;
@@ -107,11 +106,6 @@ import i5.las2peer.security.PassphraseAgent;
 
 public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaListener {
 	
-		//Boolean to tell if xmpp logging currently logging
-		public boolean xmpprunning = false;
-	
-		//Boolean to tell if mqtt logging currently logging
-		public boolean mqttrunning = false;
 		
 		//Connection for XMPP server
 		public AbstractXMPPConnection connection;
@@ -125,7 +119,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		
 		//AdHocCommandManager to send AdHoc commands over XMPP
 		public AdHocCommandManager cmnder;
-		
+	
 		//Array for saving subscriptions in MQTT
 		public JSONArray subs;
 	    
@@ -203,9 +197,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 				xmppAddress = address;
 				
 				try{
-					
-				this.receiveXMPP(address);
-				
+				this.receiveXMPP();
 				} catch (Exception e){
 					
 				}
@@ -218,12 +210,11 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		 * 
 		 */
 		
-		public void logMQTT(String address){
+		public void logMQTT(){
 			// try to connect to MQTT Broker
 			try {
 				
-				mqttrunning = true;
-	            MqttClient sampleClient = new MqttClient(address, clientId, persistence);
+	            MqttClient sampleClient = new MqttClient(broker, clientId, persistence);
 	            MqttConnectOptions connOpts = new MqttConnectOptions();
 	            connOpts.setCleanSession(true);
 	            connOpts.setKeepAliveInterval(30);
@@ -233,7 +224,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	    		connOpts.setKeepAliveInterval(0);
 	    		
 	    		
-	            System.out.println("Connecting to broker: "+address);
+	            System.out.println("Connecting to broker: "+broker);
 	            sampleClient.connect(connOpts);
 	            System.out.println("Connected");
 	            System.out.println("Publishing message: "+content);
@@ -241,7 +232,10 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	            // Use Wildcard # to subscribe to all topics
 	            sampleClient.subscribe("#");
 	            System.out.println("Subscribed to all topics");
-
+	            
+	            //set port for Loggerserver
+	            WebSocketImpl.DEBUG = true;
+	            int port = 8887; // 843 flash policy port
 	            String result = "";
 	            
 	            try{
@@ -275,21 +269,27 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	            }catch(Exception e){
 	            	
 	            }
-	            
 	            subs = (JSONArray) json.get("result");
+	            
+	         
+	            
+	            //start WebSockets server
+	            s = new LoggerServer(port);
+	    		s.start();
+	    		System.out.println( "LoggerServer started on port: " + s.getPort() );
 	    		
 	    		//set callbacks for MQTT Client
 	            sampleClient.setCallback(this);
 	        
-	            s.sendToAll(subs.toJSONString());
+	          
+	            	s.sendToAll(subs.toJSONString());
 	            
-	            while(mqttrunning){
+	            while(sampleClient.isConnected()){
 	            	try{
 	            	 URL url = new URL("http://127.0.0.1:18083/api/subscriptions");
 	            	  URLConnection conn = url.openConnection();
-	            	  conn.setConnectTimeout(10000); // 10 seconds time out
-	            	  
-	            	  TimeUnit.SECONDS.sleep(3);
+	            	  conn.setConnectTimeout(30000); // 30 seconds time out
+	            	 
 	            	   String user_pass = "admin" + ":" + "test";
 	            	   String encoded = Base64.encodeBase64String( user_pass.getBytes() );
 	            	    conn.setRequestProperty("Authorization", "Basic " + encoded);
@@ -324,10 +324,10 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	            System.out.println("excep "+me);
 	            me.printStackTrace();
 	            
-	        } catch (Exception e) {
+	        } catch (UnknownHostException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-	        }
+			}
 			
 		}
 		
@@ -376,32 +376,6 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 			}
 		}
 		
-		
-		/**
-		 * 
-		 * A method starts the Logger
-		 */
-		public void start(){
-			
-			//set port for Loggerserver
-            WebSocketImpl.DEBUG = true;
-            int port = 8887; // 843 flash policy port
-            String result = "";
-            
-            try{
-          //start WebSockets server
-            s = new LoggerServer(port, this);
-    		s.start();
-    		System.out.println( "LoggerServer started on port: " + s.getPort() );
-    		
-    		while(true){
-    			
-    		}
-    		
-            }catch(Exception e){
-            	
-            }
-		}
 		/**
 		 * 
 		 * A method to let the las2peer service log certain statistics from the mqtt srever
@@ -483,7 +457,7 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 	            //get information according to String parameter
 
 	            //start WebSockets server
-	            s = new LoggerServer(port, this);
+	            s = new LoggerServer(port);
 	    		s.start();
 	    		System.out.println( "LoggerServer started on port: " + s.getPort() );
 	    		
@@ -518,7 +492,7 @@ try{
 	            int port = 8887; // 843 flash policy port
 	            
 	            //start WebSockets server
-	            s = new LoggerServer(port, this);
+	            s = new LoggerServer(port);
 	    		s.start();
 	    		System.out.println("LoggerServer started on port: " + s.getPort());
 	    		
@@ -596,15 +570,12 @@ try{
 		 * @throws Exception
 		 */
 		
-		public void receiveXMPP(String address) throws Exception{
-			
-			//mark that the agent is running
-			xmpprunning = true;
+		public void receiveXMPP() throws Exception{
 			
 			XMPPTCPConnectionConfiguration.Builder configBuilder = XMPPTCPConnectionConfiguration.builder();
 			configBuilder.setUsernameAndPassword(xmppUsername, xmppPassword);
 			configBuilder.setResource(xmppResource);
-			configBuilder.setServiceName(address);
+			configBuilder.setServiceName(xmppAddress);
 			configBuilder.setSecurityMode(SecurityMode.disabled);
 			
 			connection = new XMPPTCPConnection(configBuilder.build());
@@ -615,7 +586,16 @@ try{
 				connection.connect();
 				// Log into the server
 				connection.login();
-
+				
+				//set port for Loggerserver
+	            WebSocketImpl.DEBUG = true;
+	            int port = 8887; // 843 flash policy port
+	            
+	            //start WebSockets server
+	            s = new LoggerServer(port);
+	    		s.start();
+	    		System.out.println("LoggerServer started on port: " + s.getPort());
+	    		
 	    		//create a new AdHocCommandManager to send AdHoc messages
 	    		cmnder = AdHocCommandManager.getAddHocCommandsManager(connection);
 
@@ -661,7 +641,7 @@ try{
 	    		    	 return true;
 	    		     }
 	    		 };
-
+	    		 
 	    		 this.manager = MultiUserChatManager.getInstanceFor(connection);
 		    		MultiUserChat muc = manager.getMultiUserChat("rwth.storm@conference.192.168.43.10");
 		    		muc.createOrJoin("adminlogger");
@@ -682,45 +662,16 @@ try{
 		    	            receiver.add(receiverId);
 		    	            
 		    				}
-
 		    				send.put("receivers", receiver);
-
 		    				s.sendToAll(send.toJSONString());
 		    	            
 		    	        }
 		    			
 		    		});
-		    		
-		    		MultiUserChat muc1 = manager.getMultiUserChat("rwth.hp001@conference.192.168.43.10");
-		    		muc1.createOrJoin("adminlogger");
-		    		muc1.addMessageListener(new MessageListener(){
-		    			
-		    			@Override
-		    			public void processMessage(org.jivesoftware.smack.packet.Message message){
-		    	            
-		    				JSONObject send = new JSONObject();
-		    				send.put("sender", message.getFrom());
-		    				JSONArray receiver = new JSONArray();
-		  
-		    				List<String> list = muc.getOccupants();
-		    				for(int i = 0; i<list.size();i++){
-		    					
-		    	            Occupant user = muc.getOccupant(list.get(i));
-		    	            String receiverId = user.getJid();
-		    	            receiver.add(receiverId);
-		    	            
-		    				}
-
-		    				send.put("receivers", receiver);
-
-		    				s.sendToAll(send.toJSONString());
-		    	            
-		    	        }
-		    			
-		    		});
-		    		
-		    		
-
+	    		
+//	    		//add SyncStanzaListener that collects all messages
+//	    		connection.addSyncStanzaListener(this, myFilter);
+	    		
 	    		while(connection.isConnected()){
 	    			
 	    		}
