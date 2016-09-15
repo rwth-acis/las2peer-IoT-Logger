@@ -115,8 +115,8 @@ public class NRTAgent extends PassphraseAgent implements MqttCallback, StanzaLis
 		
 		//Connection for XMPP server
 		public AbstractXMPPConnection connection;
-		public String xmppAddress = "192.168.43.10";
-		public String xmppUsername = "admin";
+		public String xmppAddress = "pissarro.informatik.rwth-aachen.de";
+		public String xmppUsername = "melvin";
 		public String xmppPassword = "test";
 		public String xmppResource = "logger";
 		
@@ -616,54 +616,54 @@ try{
 				// Log into the server
 				connection.login();
 
-	    		//create a new AdHocCommandManager to send AdHoc messages
-	    		cmnder = AdHocCommandManager.getAddHocCommandsManager(connection);
-
-	    		//execute the command to start logging stanzas
-	    		RemoteCommand log = cmnder.getRemoteCommand(xmppAddress, "logexchange/stanza");
-	    		log.execute();
-	    		
-	    		//save fields to choose options
-	    		Form reply = log.getForm();
-	    		FormField stanzatype = reply.getField("stanzatype");
-	    		FormField conditions = reply.getField("conditions");
-	    		FormField direction = reply.getField("direction");
-	    		
-	    		//receive answer form
-	    		reply = log.getForm().createAnswerForm();
-	    		
-	    		//only message stanzs logged
-	    		reply.setAnswer("stanzatype", stanzatype.getValues().subList(0, 1));
-	    		reply.setAnswer("conditions", conditions.getValues().subList(0, 1));
-	    		
-	    		//get whole message, not only top tag
-	    		reply.setAnswer("top", false);
-
-	    		//get smart direction
-	    		reply.setAnswer("direction", direction.getValues().subList(0, 1));
-	    		
-	    		//don't filter private content
-	    		reply.setAnswer("private", false);
-	    		reply.setAnswer("iqresponse", false);
-	    		
-	    		//send reply form
-	    		log.next(reply);
-
-	    		//check if logging session was started
-	    		if(!(log.getNotes().get(0).getValue().contains("started"))){
-	    			throw new Exception();
-	    		}
-	    		
-	    		//specify filter that only returns log data with resource "logger"
-	    		StanzaFilter myFilter = new StanzaFilter() {
-	    		     public boolean accept(Stanza stanza) {
-//	    		       return stanza.getTo().contains("/logger");
-	    		    	 return true;
-	    		     }
-	    		 };
+//	    		//create a new AdHocCommandManager to send AdHoc messages
+//	    		cmnder = AdHocCommandManager.getAddHocCommandsManager(connection);
+//
+//	    		//execute the command to start logging stanzas
+//	    		RemoteCommand log = cmnder.getRemoteCommand(xmppAddress, "logexchange/stanza");
+//	    		log.execute();
+//	    		
+//	    		//save fields to choose options
+//	    		Form reply = log.getForm();
+//	    		FormField stanzatype = reply.getField("stanzatype");
+//	    		FormField conditions = reply.getField("conditions");
+//	    		FormField direction = reply.getField("direction");
+//	    		
+//	    		//receive answer form
+//	    		reply = log.getForm().createAnswerForm();
+//	    		
+//	    		//only message stanzs logged
+//	    		reply.setAnswer("stanzatype", stanzatype.getValues().subList(0, 1));
+//	    		reply.setAnswer("conditions", conditions.getValues().subList(0, 1));
+//	    		
+//	    		//get whole message, not only top tag
+//	    		reply.setAnswer("top", false);
+//
+//	    		//get smart direction
+//	    		reply.setAnswer("direction", direction.getValues().subList(0, 1));
+//	    		
+//	    		//don't filter private content
+//	    		reply.setAnswer("private", false);
+//	    		reply.setAnswer("iqresponse", false);
+//	    		
+//	    		//send reply form
+//	    		log.next(reply);
+//
+//	    		//check if logging session was started
+//	    		if(!(log.getNotes().get(0).getValue().contains("started"))){
+//	    			throw new Exception();
+//	    		}
+//	    		
+//	    		//specify filter that only returns log data with resource "logger"
+//	    		StanzaFilter myFilter = new StanzaFilter() {
+//	    		     public boolean accept(Stanza stanza) {
+////	    		       return stanza.getTo().contains("/logger");
+//	    		    	 return true;
+//	    		     }
+//	    		 };
 
 	    		 this.manager = MultiUserChatManager.getInstanceFor(connection);
-		    		MultiUserChat muc = manager.getMultiUserChat("rwth.storm@conference.192.168.43.10");
+		    		MultiUserChat muc = manager.getMultiUserChat("rwth.storm@conference.pissarro.informatik.rwth-aachen.de");
 		    		muc.createOrJoin("adminlogger");
 		    		muc.addMessageListener(new MessageListener(){
 		    			
@@ -691,9 +691,37 @@ try{
 		    			
 		    		});
 		    		
-		    		MultiUserChat muc1 = manager.getMultiUserChat("rwth.hp001@conference.192.168.43.10");
+		    		MultiUserChat muc1 = manager.getMultiUserChat("rwth.hp001@conference.pissarro.informatik.rwth-aachen.de");
 		    		muc1.createOrJoin("adminlogger");
 		    		muc1.addMessageListener(new MessageListener(){
+		    			
+		    			@Override
+		    			public void processMessage(org.jivesoftware.smack.packet.Message message){
+		    	            
+		    				JSONObject send = new JSONObject();
+		    				send.put("sender", message.getFrom());
+		    				JSONArray receiver = new JSONArray();
+		  
+		    				List<String> list = muc.getOccupants();
+		    				for(int i = 0; i<list.size();i++){
+		    					
+		    	            Occupant user = muc.getOccupant(list.get(i));
+		    	            String receiverId = user.getJid();
+		    	            receiver.add(receiverId);
+		    	            
+		    				}
+
+		    				send.put("receivers", receiver);
+
+		    				s.sendToAll(send.toJSONString());
+		    	            
+		    	        }
+		    			
+		    		});
+		    		
+		    		MultiUserChat muc2 = manager.getMultiUserChat("rwth.clr08@conference.pissarro.informatik.rwth-aachen.de");
+		    		muc2.createOrJoin("adminlogger");
+		    		muc2.addMessageListener(new MessageListener(){
 		    			
 		    			@Override
 		    			public void processMessage(org.jivesoftware.smack.packet.Message message){
