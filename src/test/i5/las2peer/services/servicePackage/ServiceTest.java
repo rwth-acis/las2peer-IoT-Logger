@@ -26,7 +26,7 @@ import i5.las2peer.webConnector.client.MiniClient;
 public class ServiceTest {
 
 	private static final String HTTP_ADDRESS = "http://127.0.0.1";
-	private static final int HTTP_PORT = WebConnector.DEFAULT_HTTP_PORT+9;
+	private static final int HTTP_PORT = WebConnector.DEFAULT_HTTP_PORT;
 
 	private static LocalNode node;
 	private static WebConnector connector;

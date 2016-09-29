@@ -101,7 +101,7 @@ public class LoggerClass extends Service implements MqttCallback {
 	 */
 	
 	@GET
-	@Path("/startMQTT")
+	@Path("/startMQTT/address")
 	@Produces(MediaType.TEXT_PLAIN)
 	@ApiOperation(value = "MQTT Log",
 			notes = "logs a MQTT Broker")
@@ -112,9 +112,7 @@ public class LoggerClass extends Service implements MqttCallback {
 	public HttpResponse startMQTT() {
 		
 		try{
-		
-			nrtlogger = NRTAgent.createMonitoringAgent("pass");
-			nrtlogger.unlockPrivateKey("pass");
+	
 			nrtlogger.logMQTT("tcp://localhost:1883");
 		
 		} catch(Exception e){
@@ -161,8 +159,6 @@ public class LoggerClass extends Service implements MqttCallback {
 		
 		try{
 		
-			nrtlogger = NRTAgent.createMonitoringAgent("pass");
-			nrtlogger.unlockPrivateKey("pass");
 			nrtlogger.receiveXMPP("192.168.43.10");
 		
 		}
@@ -226,9 +222,7 @@ public class LoggerClass extends Service implements MqttCallback {
 	public HttpResponse state() {
 		
 		try{
-		
-			nrtlogger = NRTAgent.createMonitoringAgent("pass");
-			nrtlogger.unlockPrivateKey("pass");
+
 			nrtlogger.logState();
 		
 		} catch(Exception e){
@@ -257,8 +251,6 @@ public class LoggerClass extends Service implements MqttCallback {
 		
 		try{
 		
-			nrtlogger = NRTAgent.createMonitoringAgent("pass");
-			nrtlogger.unlockPrivateKey("pass");
 			nrtlogger.mqttState("clients/count");
 		
 		} catch(Exception e){
